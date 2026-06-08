@@ -1,0 +1,51 @@
+services:
+  - type: web
+    name: hydrotech-api
+    runtime: image
+    plan: free
+    dockerfilePath: Dockerfile
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com,hydrotech-api.onrender.com"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://hydrotech.vercel.app,http://localhost:5173"
+      - key: FRONTEND_URL
+        value: "https://hydrotech.vercel.app"
+      - key: DATABASE_ENGINE
+        value: "django.db.backends.postgresql"
+      - key: DATABASE_NAME
+        fromDatabase:
+          name: hydrotech-db
+          property: database
+      - key: DATABASE_USER
+        fromDatabase:
+          name: hydrotech-db
+          property: user
+      - key: DATABASE_PASSWORD
+        fromDatabase:
+          name: hydrotech-db
+          property: password
+      - key: DATABASE_HOST
+        fromDatabase:
+          name: hydrotech-db
+          property: host
+      - key: DATABASE_PORT
+        fromDatabase:
+          name: hydrotech-db
+          property: port
+      - key: JWT_ACCESS_TOKEN_LIFETIME
+        value: "60"
+      - key: JWT_REFRESH_TOKEN_LIFETIME
+        value: "7"
+      - key: LOG_LEVEL
+        value: "INFO"
+
+databases:
+  - name: hydrotech-db
+    plan: free
+    databaseName: hydrotech_db
+    user: hydrotech_user
