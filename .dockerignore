@@ -1,0 +1,17 @@
+.git
+.agents
+.env
+.env.*
+hydrotech-frontend
+hydrotech-rota-fuga-main
+hydrotechDjango_core/backend/.env
+hydrotechDjango_core/backend/.env.*
+hydrotechDjango_core/backend/db.sqlite3
+hydrotechDjango_core/backend/db.sqlite3-*
+hydrotechDjango_core/backend/logs
+hydrotechDjango_core/backend/media
+hydrotechDjango_core/backend/staticfiles
+hydrotechDjango_core/backend/.venv
+hydrotechDjango_core/backend/venv
+hydrotechDjango_core/backend/__pycache__
+hydrotechDjango_core/backend/.pytest_cache

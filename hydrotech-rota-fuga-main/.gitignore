@@ -1,0 +1,14 @@
+venv/
+.env
+.env.*
+!.env.example
+__pycache__/
+.pytest_cache/
+.pytest-run-temp/
+.mypy_cache/
+.coverage
+cache/
+*.log
+
+# cópia local dos arquivos do HydroTech, não faz parte deste projeto
+integracao/

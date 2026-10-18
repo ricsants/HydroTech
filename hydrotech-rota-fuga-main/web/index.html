@@ -1,0 +1,1131 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HydroTech · Rota de Fuga 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css">
+<style>
+  :root {
+    --fundo: #050a14;
+    --vidro: rgba(13, 22, 40, .72);
+    --vidro-forte: rgba(9, 16, 30, .86);
+    --borda: rgba(148, 197, 255, .12);
+    --borda-forte: rgba(148, 197, 255, .22);
+    --brilho-topo: rgba(255, 255, 255, .09);
+    --texto: #eef4ff;
+    --texto-2: #9db3d1;
+    --texto-3: #5f7898;
+    --azul-claro: #60a5fa;
+    --verde: #10b981;
+    --verde-claro: #34d399;
+    --vermelho: #ef4444;
+    --ambar: #f59e0b;
+    --sombra-funda: 0 40px 80px -20px rgba(0, 0, 0, .8), 0 18px 36px -18px rgba(0, 0, 0, .7);
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body { font-family: Inter, system-ui, sans-serif; background: var(--fundo); color: var(--texto); -webkit-font-smoothing: antialiased; }
+  button { font-family: inherit; }
+
+  /* Mapa e atmosfera */
+  #mapa { position: fixed; inset: 0; }
+  .vinheta {
+    position: fixed; inset: 0; pointer-events: none; z-index: 1;
+    background:
+      radial-gradient(120% 90% at 60% 45%, transparent 55%, rgba(2, 6, 14, .55) 100%),
+      linear-gradient(to bottom, rgba(2, 6, 14, .55), transparent 18%, transparent 82%, rgba(2, 6, 14, .6));
+  }
+  .maplibregl-ctrl-attrib { background: rgba(5, 10, 20, .6) !important; color: var(--texto-3) !important; font-size: 10px; }
+  .maplibregl-ctrl-attrib a { color: var(--texto-2) !important; }
+  .maplibregl-ctrl-group { background: var(--vidro-forte) !important; border: 1px solid var(--borda) !important; box-shadow: var(--sombra-funda) !important; border-radius: 14px !important; overflow: hidden; backdrop-filter: blur(14px); }
+  .maplibregl-ctrl-group button { width: 38px; height: 38px; }
+  .maplibregl-ctrl-group button + button { border-top: 1px solid var(--borda) !important; }
+  .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: invert(1) brightness(1.4); }
+
+  /* Topo */
+  .topo {
+    position: fixed; top: 16px; left: 16px; right: 16px; z-index: 5;
+    display: flex; align-items: center; gap: 12px; pointer-events: none;
+  }
+  .marca {
+    pointer-events: auto; display: flex; align-items: center; gap: 12px;
+    padding: 10px 18px 10px 10px; border-radius: 18px;
+    background: var(--vidro); border: 1px solid var(--borda); backdrop-filter: blur(18px) saturate(140%);
+    box-shadow: var(--sombra-funda), inset 0 1px 0 var(--brilho-topo);
+  }
+  .logo3d {
+    width: 40px; height: 40px; border-radius: 12px; position: relative; transform-style: preserve-3d;
+    background: linear-gradient(145deg, #4f8ff7, #1d4ed8 60%, #1e3a8a);
+    box-shadow: 0 6px 0 #172554, 0 12px 22px rgba(37, 99, 235, .55), inset 0 1px 0 rgba(255, 255, 255, .45);
+    display: grid; place-items: center;
+  }
+  .logo3d svg { filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .4)); }
+  .marca-txt b { display: block; font-size: 15px; font-weight: 800; letter-spacing: -.01em; }
+  .marca-txt span { font-size: 11px; color: var(--texto-2); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+  .marca-txt span em { font-style: normal; color: var(--verde-claro); }
+  .chips { pointer-events: auto; display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+  .chip {
+    display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 999px;
+    background: var(--vidro); border: 1px solid var(--borda); backdrop-filter: blur(14px);
+    font-size: 12px; font-weight: 600; color: var(--texto-2); box-shadow: 0 10px 24px -8px rgba(0, 0, 0, .6), inset 0 1px 0 var(--brilho-topo);
+  }
+  .chip b { color: var(--texto); font-family: var(--mono); }
+  .led { width: 8px; height: 8px; border-radius: 50%; background: var(--texto-3); box-shadow: 0 0 0 3px rgba(255, 255, 255, .04); }
+  .led.ok { background: var(--verde-claro); box-shadow: 0 0 10px var(--verde-claro), 0 0 0 3px rgba(52, 211, 153, .15); animation: piscar 2.4s infinite; }
+  .led.atencao { background: var(--ambar); box-shadow: 0 0 10px var(--ambar); }
+  .led.perigo { background: var(--vermelho); box-shadow: 0 0 12px var(--vermelho); animation: piscar 1s infinite; }
+  @keyframes piscar { 50% { opacity: .35; } }
+
+  /* Painel: altura acompanha o conteúdo; a ação principal fica presa embaixo */
+  .painel {
+    position: fixed; z-index: 4; top: 88px; left: 16px; width: 400px; max-height: calc(100vh - 104px);
+    display: flex; flex-direction: column;
+    background: linear-gradient(165deg, rgba(18, 30, 54, .84), rgba(7, 12, 24, .92) 70%);
+    border: 1px solid var(--borda); border-radius: 26px;
+    backdrop-filter: blur(22px) saturate(150%);
+    box-shadow: var(--sombra-funda), inset 0 1px 0 var(--brilho-topo), inset 0 -1px 0 rgba(0, 0, 0, .5);
+    overflow: hidden;
+  }
+  .painel::before { /* reflexo do vidro */
+    content: ''; position: absolute; inset: 0 0 auto 0; height: 120px; pointer-events: none;
+    background: linear-gradient(180deg, rgba(255, 255, 255, .06), transparent);
+  }
+  .painel-rolagem { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 14px;
+    scrollbar-width: thin; scrollbar-color: rgba(148, 197, 255, .2) transparent; }
+  #corpo { display: flex; flex-direction: column; gap: 14px; transition: opacity .2s; }
+  #corpo:empty { display: none; }
+  #corpo.esmaecido { opacity: .4; pointer-events: none; }
+  .painel-rodape { flex-shrink: 0; padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 10px;
+    border-top: 1px solid var(--borda); background: linear-gradient(180deg, rgba(4, 9, 18, .35), rgba(4, 9, 18, .8)); }
+
+  .intro h1 { font-size: 22px; font-weight: 900; letter-spacing: -.03em; line-height: 1.1;
+    background: linear-gradient(180deg, #fff, #9db3d1); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .intro p { margin-top: 6px; font-size: 13px; color: var(--texto-2); line-height: 1.5; }
+
+  /* Faixa de status: uma só no topo; vermelha forte só quando a pessoa está dentro da zona */
+  .status { position: relative; overflow: hidden; display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: 18px; }
+  .status b { display: block; font-size: 15px; font-weight: 800; line-height: 1.25; }
+  .status span { display: block; margin-top: 3px; font-size: 13px; line-height: 1.45; }
+  .status small { display: block; margin-top: 8px; font-size: 11.5px; line-height: 1.4; opacity: .75; }
+  .status.perigo { color: #fee2e2;
+    background: linear-gradient(160deg, rgba(185, 28, 28, .6), rgba(69, 10, 10, .75)); border: 1px solid rgba(248, 113, 113, .55);
+    box-shadow: 0 18px 40px -12px rgba(239, 68, 68, .5), inset 0 1px 0 rgba(255, 255, 255, .14); animation: respirar 2s ease-in-out infinite; }
+  .status.perigo::before { /* listras de perigo */
+    content: ''; position: absolute; inset: 0; opacity: .08; pointer-events: none;
+    background: repeating-linear-gradient(-45deg, #fca5a5 0 10px, transparent 10px 22px);
+  }
+  .status.alerta { color: #fecaca; background: rgba(127, 29, 29, .3); border: 1px solid rgba(248, 113, 113, .28); }
+  .status.alerta b { font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: #fca5a5; }
+  .status.alerta span { color: #fff; font-weight: 600; }
+  @keyframes respirar { 50% { box-shadow: 0 18px 50px -8px rgba(239, 68, 68, .75), inset 0 1px 0 rgba(255, 255, 255, .14); } }
+  .sirene { position: relative; width: 32px; height: 32px; flex-shrink: 0; border-radius: 10px; display: grid; place-items: center;
+    background: radial-gradient(circle at 35% 30%, #fca5a5, #dc2626 55%, #7f1d1d);
+    box-shadow: 0 4px 0 #450a0a, 0 0 18px rgba(239, 68, 68, .8); animation: sirene 1s steps(2) infinite; }
+  @keyframes sirene { 50% { box-shadow: 0 4px 0 #450a0a, 0 0 4px rgba(239, 68, 68, .3); filter: brightness(.75); } }
+
+  /* Botões 3D: vermelho para começar, azul para navegar */
+  .btn3d {
+    position: relative; width: 100%; border: 0; cursor: pointer; border-radius: 18px; padding: 16px 18px; text-decoration: none;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    font-family: inherit; font-size: 15.5px; font-weight: 800; letter-spacing: .01em; color: #fff;
+    background: linear-gradient(180deg, #f87171, #dc2626 55%, #b91c1c);
+    box-shadow: 0 7px 0 #7f1d1d, 0 14px 28px -6px rgba(220, 38, 38, .65), inset 0 1px 0 rgba(255, 255, 255, .4), inset 0 -2px 0 rgba(0, 0, 0, .15);
+    transition: transform .08s, box-shadow .08s, filter .2s; text-shadow: 0 1px 1px rgba(0, 0, 0, .35);
+  }
+  .btn3d:hover { filter: brightness(1.08); }
+  .btn3d:active { transform: translateY(6px); box-shadow: 0 1px 0 #7f1d1d, 0 6px 14px -6px rgba(220, 38, 38, .6), inset 0 1px 0 rgba(255, 255, 255, .3); }
+  .btn3d:disabled { cursor: wait; filter: saturate(.6) brightness(.85); }
+  .btn3d.azul { background: linear-gradient(180deg, #60a5fa, #2563eb 55%, #1d4ed8);
+    box-shadow: 0 7px 0 #1e3a8a, 0 14px 28px -6px rgba(37, 99, 235, .6), inset 0 1px 0 rgba(255, 255, 255, .4), inset 0 -2px 0 rgba(0, 0, 0, .15); }
+  .btn3d.azul:active { box-shadow: 0 1px 0 #1e3a8a, 0 6px 14px -6px rgba(37, 99, 235, .6); }
+  .btn3d .alvo { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; position: relative; box-shadow: 0 0 10px rgba(255, 255, 255, .6); }
+  .btn3d .alvo::after { content: ''; position: absolute; inset: 4px; border-radius: 50%; background: #fff; }
+  .acoes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .btn-sec { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 6px; border-radius: 12px; cursor: pointer;
+    font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--texto); text-decoration: none; white-space: nowrap;
+    background: linear-gradient(180deg, rgba(34, 52, 86, .95), rgba(16, 26, 46, .95)); border: 1px solid var(--borda-forte);
+    box-shadow: 0 4px 0 rgba(3, 7, 16, .95), inset 0 1px 0 var(--brilho-topo); transition: transform .08s, box-shadow .08s, color .2s; }
+  .btn-sec:hover { color: #fff; border-color: rgba(96, 165, 250, .45); }
+  .btn-sec:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(3, 7, 16, .95); }
+  .btn-sec:disabled { opacity: .4; cursor: not-allowed; }
+  .ou-toque { text-align: center; font-size: 12px; color: var(--texto-3); }
+
+  /* Seletor a pé / carro */
+  .segmentos { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 14px;
+    background: rgba(2, 6, 14, .6); border: 1px solid var(--borda); box-shadow: inset 0 3px 8px rgba(0, 0, 0, .6); }
+  .segmentos .pilula { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 10px;
+    background: linear-gradient(180deg, #2b4c80, #1d3560); box-shadow: 0 3px 0 #0f1f3d, 0 8px 16px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .2);
+    transition: transform .35s cubic-bezier(.3, 1.4, .5, 1); }
+  .segmentos[data-modo="carro"] .pilula { transform: translateX(100%); }
+  .segmentos button { position: relative; z-index: 1; border: 0; background: none; color: var(--texto-2); padding: 10px; font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: color .2s; }
+  .segmentos button.ativo { color: #fff; }
+
+  /* Avisos: amarelos. O vermelho fica só na faixa de status */
+  .avisos { display: flex; flex-direction: column; gap: 8px; }
+  .aviso { display: flex; gap: 10px; padding: 11px 13px; border-radius: 14px; font-size: 12.5px; line-height: 1.45;
+    background: rgba(245, 158, 11, .09); border: 1px solid rgba(245, 158, 11, .28); color: #fcd34d; }
+  .aviso.grave { background: rgba(239, 68, 68, .14); border-color: rgba(239, 68, 68, .45); color: #fecaca; font-weight: 700; }
+  .aviso svg { flex-shrink: 0; margin-top: 1px; }
+
+  /* Cartão do destino: primeiro bloco quando a rota fica pronta */
+  .destino3d { perspective: 900px; }
+  .destino-cartao {
+    position: relative; border-radius: 22px; padding: 16px; transform-style: preserve-3d;
+    background: linear-gradient(150deg, rgba(16, 185, 129, .22), rgba(6, 78, 59, .35) 45%, rgba(6, 20, 30, .6));
+    border: 1px solid rgba(52, 211, 153, .35);
+    box-shadow: 0 24px 48px -16px rgba(16, 185, 129, .45), inset 0 1px 0 rgba(255, 255, 255, .14);
+    transition: transform .15s ease-out;
+  }
+  .destino-cartao .camada { transform: translateZ(28px); display: flex; flex-direction: column; gap: 14px; }
+  .destino-rotulo { font-size: 10.5px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: #6ee7b7; }
+  .destino-topo { display: flex; align-items: center; gap: 12px; margin-top: -6px; }
+  .bandeira { width: 44px; height: 44px; border-radius: 14px; flex-shrink: 0; display: grid; place-items: center;
+    background: linear-gradient(145deg, #34d399, #059669 60%, #065f46);
+    box-shadow: 0 5px 0 #064e3b, 0 12px 22px rgba(16, 185, 129, .5), inset 0 1px 0 rgba(255, 255, 255, .45); }
+  .destino-nome { font-size: 19px; font-weight: 900; letter-spacing: -.02em; }
+  .destino-tipo { font-size: 12.5px; color: #a7f3d0; margin-top: 2px; line-height: 1.4; }
+  .metricas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .metrica { border-radius: 14px; padding: 10px 8px; background: rgba(2, 6, 14, .45); border: 1px solid rgba(255, 255, 255, .06);
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, .45); }
+  .metrica b { display: block; font-family: var(--mono); font-size: 19px; font-weight: 700; letter-spacing: -.02em; color: #fff; text-shadow: 0 0 18px rgba(52, 211, 153, .45); white-space: nowrap; }
+  .metrica span { font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--texto-3); white-space: nowrap; }
+  .metrica.subida b { color: var(--verde-claro); }
+
+  /* Seções: perfil e passo a passo */
+  .secao { border-radius: 16px; padding: 12px 14px; background: rgba(2, 6, 14, .45); border: 1px solid var(--borda); box-shadow: inset 0 2px 10px rgba(0, 0, 0, .45); }
+  .secao-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 12.5px; font-weight: 700; color: var(--texto-2); }
+  .secao-cab b { font-family: var(--mono); font-size: 13px; color: var(--verde-claro); }
+  .perfil > svg { width: 100%; height: 120px; display: block; overflow: visible; margin-top: 10px; }
+  .perfil-leg { display: flex; gap: 14px; font-size: 11px; color: var(--texto-3); margin-top: 8px; }
+  .perfil-leg i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+  .perfil .aviso { margin-top: 10px; }
+  details.secao summary { list-style: none; cursor: pointer; }
+  details.secao summary::-webkit-details-marker { display: none; }
+  details.secao summary b::after { content: ' ▾'; display: inline-block; transition: transform .2s; }
+  details.secao[open] summary b::after { transform: rotate(180deg); }
+
+  .passos { list-style: none; position: relative; display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+  .passos::before { content: ''; position: absolute; left: 17px; top: 18px; bottom: 18px; width: 2px; background: linear-gradient(var(--verde), rgba(16, 185, 129, .1)); }
+  .passo { position: relative; display: flex; gap: 12px; align-items: flex-start; padding: 6px 4px 6px 0; }
+  .passo-icone { position: relative; z-index: 1; width: 36px; height: 36px; flex-shrink: 0; border-radius: 12px; display: grid; place-items: center;
+    background: linear-gradient(160deg, #1f3354, #12213b); border: 1px solid var(--borda-forte); box-shadow: 0 4px 0 #0a1428, 0 8px 14px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .12); color: var(--verde-claro); }
+  .passo:last-child .passo-icone { background: linear-gradient(145deg, #34d399, #059669); color: #052e1c; border-color: transparent; box-shadow: 0 4px 0 #064e3b, 0 0 16px rgba(52, 211, 153, .5); }
+  .passo-txt { font-size: 13px; line-height: 1.4; padding-top: 8px; }
+  .passo-txt small { display: block; font-family: var(--mono); font-size: 11px; color: var(--texto-3); margin-top: 2px; }
+  .alternativa { font-size: 12.5px; color: var(--texto-2); padding: 8px 0; border-top: 1px solid var(--borda); }
+  .alternativa:first-of-type { margin-top: 10px; }
+
+  /* Esqueleto enquanto calcula */
+  .esqueleto { display: flex; flex-direction: column; gap: 10px; }
+  .esqueleto i { display: block; height: 16px; border-radius: 8px; background: linear-gradient(90deg, rgba(148, 197, 255, .06), rgba(148, 197, 255, .14), rgba(148, 197, 255, .06));
+    background-size: 200% 100%; animation: brilhar 1.2s linear infinite; }
+  .esqueleto i:first-child { height: 120px; border-radius: 20px; }
+  .esqueleto i:last-child { width: 60%; }
+  @keyframes brilhar { to { background-position: -200% 0; } }
+  @keyframes girar { to { transform: rotate(360deg); } }
+
+  /* Controles 3D (canto direito) */
+  .controles { position: fixed; z-index: 4; right: 16px; top: 88px; display: flex; flex-direction: column; gap: 10px; }
+  .ctrl { width: 52px; height: 52px; border-radius: 16px; border: 1px solid var(--borda); cursor: pointer; color: var(--texto-2); position: relative;
+    background: linear-gradient(180deg, rgba(28, 44, 74, .92), rgba(12, 20, 38, .92)); backdrop-filter: blur(14px);
+    box-shadow: 0 5px 0 rgba(3, 7, 16, .95), 0 14px 26px -8px rgba(0, 0, 0, .8), inset 0 1px 0 var(--brilho-topo);
+    display: grid; place-items: center; transition: transform .08s, box-shadow .08s, color .2s; }
+  .ctrl:hover { color: #fff; }
+  .ctrl:active { transform: translateY(4px); box-shadow: 0 1px 0 rgba(3, 7, 16, .95), inset 0 1px 0 var(--brilho-topo); }
+  .ctrl.ligado { color: #fff; background: linear-gradient(180deg, #2f5fae, #1b3a73); border-color: rgba(96, 165, 250, .5); box-shadow: 0 5px 0 #0c1d3d, 0 0 22px rgba(59, 130, 246, .45), inset 0 1px 0 rgba(255, 255, 255, .25); }
+  .ctrl:disabled { opacity: .35; cursor: not-allowed; }
+  .ctrl[data-dica]:hover::after { content: attr(data-dica); position: absolute; right: 62px; white-space: nowrap; padding: 7px 11px; border-radius: 10px;
+    background: var(--vidro-forte); border: 1px solid var(--borda); font-size: 12px; font-weight: 600; color: var(--texto); box-shadow: var(--sombra-funda); }
+  .legenda { margin-top: 6px; padding: 12px; border-radius: 16px; background: var(--vidro); border: 1px solid var(--borda); backdrop-filter: blur(14px);
+    box-shadow: var(--sombra-funda); display: flex; flex-direction: column; gap: 8px; font-size: 11px; color: var(--texto-2); width: 52px; align-items: center; }
+  .legenda .cor { width: 14px; height: 14px; border-radius: 5px; box-shadow: 0 0 10px currentColor; }
+
+  /* Barra do passeio pela rota */
+  .passeio { position: fixed; z-index: 6; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(140%); transition: transform .45s cubic-bezier(.3, 1.3, .5, 1);
+    display: flex; align-items: center; gap: 14px; padding: 12px 14px 12px 18px; border-radius: 20px; min-width: 360px;
+    background: var(--vidro-forte); border: 1px solid var(--borda-forte); backdrop-filter: blur(18px); box-shadow: var(--sombra-funda), inset 0 1px 0 var(--brilho-topo); }
+  .passeio.visivel { transform: translateX(-50%) translateY(0); }
+  .passeio-info { flex: 1; font-size: 12px; color: var(--texto-2); }
+  .passeio-info b { display: block; font-size: 14px; color: var(--texto); margin-bottom: 6px; }
+  .trilho { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .08); overflow: hidden; box-shadow: inset 0 1px 3px rgba(0, 0, 0, .6); }
+  .trilho i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--verde), var(--verde-claro)); box-shadow: 0 0 12px var(--verde-claro); }
+  .passeio button { border: 0; cursor: pointer; padding: 10px 14px; border-radius: 12px; font-weight: 800; color: #fff; background: linear-gradient(180deg, #475569, #334155); box-shadow: 0 4px 0 #1e293b; }
+
+  /* Carregando (radar) */
+  .carregando { position: fixed; inset: 0; z-index: 8; display: grid; place-items: center; pointer-events: none; opacity: 0; transition: opacity .3s; }
+  .carregando.visivel { opacity: 1; }
+  .radar { width: 220px; height: 220px; border-radius: 50%; position: relative;
+    background: radial-gradient(circle, rgba(16, 185, 129, .08) 0 30%, rgba(16, 185, 129, .03) 31% 60%, transparent 61%),
+      repeating-radial-gradient(circle, transparent 0 34px, rgba(52, 211, 153, .18) 35px 36px);
+    border: 1px solid rgba(52, 211, 153, .35); box-shadow: 0 0 60px rgba(16, 185, 129, .25), inset 0 0 40px rgba(16, 185, 129, .15); }
+  .radar::before { content: ''; position: absolute; inset: 0; border-radius: 50%;
+    background: conic-gradient(from 0deg, rgba(52, 211, 153, .55), rgba(52, 211, 153, 0) 25%); animation: girar 1.6s linear infinite; }
+  .radar span { position: absolute; left: 50%; top: calc(100% + 18px); transform: translateX(-50%); white-space: nowrap;
+    font-size: 13px; font-weight: 700; letter-spacing: .08em; color: var(--verde-claro); text-shadow: 0 0 12px rgba(52, 211, 153, .6); }
+
+  /* Marcadores HTML sobre o mapa */
+  .pino { position: relative; width: 0; height: 0; }
+  .pino-onda { position: absolute; left: -28px; top: -28px; width: 56px; height: 56px; border-radius: 50%; border: 2px solid currentColor; opacity: 0; animation: onda 2.2s ease-out infinite; }
+  .pino-onda.d2 { animation-delay: 1.1s; }
+  @keyframes onda { 0% { transform: scale(.25); opacity: .9; } 100% { transform: scale(1.6); opacity: 0; } }
+  .pino-nucleo { position: absolute; left: -11px; top: -11px; width: 22px; height: 22px; border-radius: 50%; background: currentColor; border: 3px solid #fff;
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, .15), 0 0 24px currentColor, 0 6px 12px rgba(0, 0, 0, .6); }
+  .pino-etiqueta { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); white-space: nowrap; padding: 7px 11px; border-radius: 12px;
+    font-size: 12px; font-weight: 800; color: #fff; background: var(--vidro-forte); border: 1px solid currentColor;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, .55), 0 0 18px -4px currentColor; }
+  .pino-etiqueta small { display: block; font-size: 10.5px; font-weight: 600; color: var(--texto-2); }
+  .pino.voce { color: var(--azul-claro); }
+  .pino.seguro { color: var(--verde-claro); }
+  .pino.disco { color: var(--verde-claro); }
+  .pino.disco .pino-nucleo { width: 18px; height: 18px; left: -9px; top: -9px; background: radial-gradient(circle at 35% 30%, #fff, #34d399 45%, #047857); border-width: 2px; }
+
+  .maplibregl-popup.pop .maplibregl-popup-content { background: var(--vidro-forte); color: var(--texto); border: 1px solid rgba(248, 113, 113, .5);
+    border-radius: 14px; padding: 10px 13px; box-shadow: 0 16px 32px rgba(0, 0, 0, .6), 0 0 20px -6px rgba(239, 68, 68, .6); font-size: 12.5px; backdrop-filter: blur(12px); }
+  .maplibregl-popup.pop .maplibregl-popup-tip { display: none; }
+  .pop b { color: #fca5a5; letter-spacing: .08em; font-size: 11px; }
+
+  .sem-webgl { position: fixed; inset: 0; display: none; place-items: center; z-index: 20; background: var(--fundo); text-align: center; padding: 24px; color: var(--texto-2); }
+
+  /* Celular: painel vira "gaveta" inferior */
+  @media (max-width: 820px) {
+    .topo { top: 10px; left: 10px; right: 10px; }
+    .chips .chip.extra { display: none; }
+    .marca { padding: 8px 14px 8px 8px; }
+    .painel { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 56vh; border-radius: 24px; }
+    .painel::after { content: ''; position: absolute; top: 7px; left: 50%; transform: translateX(-50%); width: 42px; height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .2); }
+    .painel-rolagem { padding-top: 22px; }
+    .controles { top: 76px; right: 10px; }
+    .ctrl { width: 46px; height: 46px; }
+    .legenda { display: none; }
+    .passeio { min-width: 0; left: 10px; right: 10px; transform: translateY(160%); bottom: calc(56vh + 18px); }
+    .passeio.visivel { transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+<p style="position:fixed;z-index:20;bottom:12px;left:12px;right:12px;max-width:520px;padding:9px 12px;border-radius:8px;background:rgba(113,63,18,.95);color:#fff;font:600 12px Inter, sans-serif;pointer-events:none">Simulação acadêmica: riscos, alertas e rotas não representam uma emergência real. Siga a Defesa Civil.</p>
+<div id="mapa" aria-label="Mapa 3D da rota de fuga"></div>
+<div class="vinheta"></div>
+
+<header class="topo">
+  <div class="marca">
+    <div class="logo3d">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>
+    </div>
+    <div class="marca-txt"><b>HydroTech</b><span>Rota de Fuga <em>3D</em></span></div>
+  </div>
+  <div class="chips">
+    <div class="chip" id="chipDesvio"><span class="led"></span>Desvio <b>…</b></div>
+    <div class="chip extra" id="chipZonas"><span class="led"></span>Áreas de risco <b>…</b></div>
+    <div class="chip extra" id="chipHora"><b>--:--</b></div>
+  </div>
+</header>
+
+<!-- O conteúdo do painel é montado pelo renderPainel() conforme a fase -->
+<aside class="painel" id="painel">
+  <div class="painel-rolagem">
+    <div id="cabecalho"></div>
+    <div id="corpo"></div>
+  </div>
+  <footer class="painel-rodape" id="rodape"></footer>
+</aside>
+
+<div class="controles">
+  <button class="ctrl ligado" id="ctrl3d" data-dica="Vista 3D / de cima" aria-label="Alternar vista 3D">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></svg>
+  </button>
+  <button class="ctrl" id="ctrlSatelite" data-dica="Imagem de satélite" aria-label="Alternar satélite">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 7 9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4Z"/><path d="m16 8 3-3"/><path d="M9 21a6 6 0 0 0-6-6"/></svg>
+  </button>
+  <button class="ctrl" id="ctrlPasseio" data-dica="Percorrer a rota" aria-label="Percorrer a rota" disabled>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14z"/></svg>
+  </button>
+  <button class="ctrl" id="ctrlGirar" data-dica="Girar ao redor" aria-label="Girar a câmera ao redor">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+  </button>
+  <button class="ctrl" id="ctrlCentro" data-dica="Enquadrar rota" aria-label="Enquadrar a rota">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><circle cx="12" cy="12" r="3"/></svg>
+  </button>
+  <div class="legenda" aria-hidden="true">
+    <span class="cor" style="color:#ef4444;background:#ef4444"></span>Risco
+    <span class="cor" style="color:#34d399;background:#34d399"></span>Rota
+    <span class="cor" style="color:#fb923c;background:#fb923c"></span>Baixo
+    <span class="cor" style="color:#60a5fa;background:#60a5fa"></span>Você
+  </div>
+</div>
+
+<div class="passeio" id="passeio">
+  <div class="passeio-info"><b id="passeioTxt">Percorrendo a rota…</b><div class="trilho"><i id="passeioBarra"></i></div></div>
+  <button id="passeioParar">Parar</button>
+</div>
+
+<div class="carregando" id="carregando"><div class="radar"><span>CALCULANDO ROTA SEGURA…</span></div></div>
+<div class="sem-webgl" id="semWebgl">Seu navegador não suporta mapas 3D (WebGL). Use a <a href="/2d" style="color:#60a5fa">versão 2D</a>.</div>
+
+<script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+<script>
+'use strict';
+
+// ---- Configuração e estado ----
+const params = new URLSearchParams(location.search);
+const alerta = /^\d+(,\d+)*$/.test(params.get('alerta') || '') ? params.get('alerta') : null;
+const EXAGERO_RELEVO = 1.8;          // Campinas é quase plana, sem exagero nem dá para ver os morros
+const ALTURA_PAREDE_ZONA = 60;       // metros
+const ALTURA_FAROL = 260;            // metros
+
+const estado = {
+  modo: params.get('modo') === 'carro' ? 'carro' : 'pe',
+  origem: null,           // [lng, lat]
+  zonas: [],
+  resposta: null,
+  rota: [],               // coordenadas [lng, lat]
+  satelite: false,
+  vista3d: true,
+  passeio: null,
+  girando: null,
+  fase: 'inicio',          // inicio, localizando, calculando, rota, erro
+  erro: '',
+};
+
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtDist = (m) => (m >= 1000 ? `${(m / 1000).toFixed(1).replace('.', ',')} km` : `${Math.round(m)} m`);
+const fmtTempo = (s) => (s < 3600 ? `${Math.max(1, Math.round(s / 60))} min` : `${Math.floor(s / 3600)}h${String(Math.round((s % 3600) / 60)).padStart(2, '0')}`);
+
+// ---- Geometria ----
+const R = 6371000;
+const rad = (g) => (g * Math.PI) / 180;
+const grau = (r) => (r * 180) / Math.PI;
+
+function distancia([lng1, lat1], [lng2, lat2]) {
+  const dLat = rad(lat2 - lat1), dLng = rad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+function rumo([lng1, lat1], [lng2, lat2]) {
+  const y = Math.sin(rad(lng2 - lng1)) * Math.cos(rad(lat2));
+  const x = Math.cos(rad(lat1)) * Math.sin(rad(lat2)) - Math.sin(rad(lat1)) * Math.cos(rad(lat2)) * Math.cos(rad(lng2 - lng1));
+  return (grau(Math.atan2(y, x)) + 360) % 360;
+}
+function deslocar([lng, lat], direcao, metros) {
+  const d = metros / R, b = rad(direcao), l1 = rad(lat), g1 = rad(lng);
+  const l2 = Math.asin(Math.sin(l1) * Math.cos(d) + Math.cos(l1) * Math.sin(d) * Math.cos(b));
+  const g2 = g1 + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(l1), Math.cos(d) - Math.sin(l1) * Math.sin(l2));
+  return [grau(g2), grau(l2)];
+}
+function anel(centro, raio, passos = 72) {
+  const pts = [];
+  for (let i = 0; i <= passos; i++) pts.push(deslocar(centro, (360 * i) / passos, raio));
+  return pts;
+}
+const circulo = (centro, raio) => ({ type: 'Polygon', coordinates: [anel(centro, raio)] });
+const coroa = (centro, raioExt, raioInt) => ({ type: 'Polygon', coordinates: [anel(centro, raioExt), anel(centro, raioInt).reverse()] });
+
+// Pontos ao longo da rota (câmera, perfil e passeio)
+function acumulado(coords) {
+  const acc = [0];
+  for (let i = 1; i < coords.length; i++) acc.push(acc[i - 1] + distancia(coords[i - 1], coords[i]));
+  return acc;
+}
+function pontoEm(coords, acc, d) {
+  if (d <= 0) return coords[0];
+  const total = acc[acc.length - 1];
+  if (d >= total) return coords[coords.length - 1];
+  let i = 1;
+  while (acc[i] < d) i++;
+  const t = (d - acc[i - 1]) / (acc[i] - acc[i - 1] || 1);
+  return [coords[i - 1][0] + (coords[i][0] - coords[i - 1][0]) * t, coords[i - 1][1] + (coords[i][1] - coords[i - 1][1]) * t];
+}
+const angulo = (a, b, t) => a + ((((b - a) % 360) + 540) % 360 - 180) * t;
+
+// ---- Estilo do mapa ----
+const nome = ['coalesce', ['get', 'name:pt'], ['get', 'name']];
+const largura = (base) => ['interpolate', ['exponential', 1.6], ['zoom'], 10, base * 0.3, 14, base, 18, base * 6];
+
+const ESTILO = {
+  version: 8,
+  glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+  sources: {
+    omt: { type: 'vector', url: 'https://tiles.openfreemap.org/planet', attribution: '© <a href="https://openfreemap.org">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' },
+    relevo: { type: 'raster-dem', tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], tileSize: 256, encoding: 'terrarium', maxzoom: 15, attribution: 'Relevo: Mapzen/AWS Terrain Tiles' },
+    sombra: { type: 'raster-dem', tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], tileSize: 256, encoding: 'terrarium', maxzoom: 15 },
+    satelite: { type: 'raster', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, maxzoom: 19, attribution: 'Imagens © Esri' },
+  },
+  layers: [
+    { id: 'fundo', type: 'background', paint: { 'background-color': '#08101e' } },
+    { id: 'satelite', type: 'raster', source: 'satelite', layout: { visibility: 'none' }, paint: { 'raster-saturation': -0.15, 'raster-contrast': 0.1, 'raster-brightness-max': 0.85 } },
+    { id: 'cobertura', type: 'fill', source: 'omt', 'source-layer': 'landcover', filter: ['in', ['get', 'class'], ['literal', ['grass', 'wood', 'scrub', 'farmland']]],
+      paint: { 'fill-color': ['match', ['get', 'class'], 'wood', '#0c2a22', '#0b231d'], 'fill-opacity': 0.75 } },
+    { id: 'parques', type: 'fill', source: 'omt', 'source-layer': 'park', paint: { 'fill-color': '#0d2f25', 'fill-opacity': 0.7 } },
+    { id: 'uso', type: 'fill', source: 'omt', 'source-layer': 'landuse', filter: ['in', ['get', 'class'], ['literal', ['residential', 'commercial', 'industrial']]],
+      paint: { 'fill-color': '#0c1729', 'fill-opacity': 0.6 } },
+    { id: 'relevo-sombra', type: 'hillshade', source: 'sombra',
+      paint: { 'hillshade-shadow-color': '#000000', 'hillshade-highlight-color': '#2a4a78', 'hillshade-accent-color': '#0b1a30', 'hillshade-exaggeration': 0.55, 'hillshade-illumination-direction': 315 } },
+    { id: 'agua', type: 'fill', source: 'omt', 'source-layer': 'water', paint: { 'fill-color': '#0a2a52', 'fill-opacity': 0.95 } },
+    { id: 'rios', type: 'line', source: 'omt', 'source-layer': 'waterway', paint: { 'line-color': '#1e5aa8', 'line-width': largura(1.6), 'line-opacity': 0.9 } },
+    { id: 'vias-menores', type: 'line', source: 'omt', 'source-layer': 'transportation', filter: ['in', ['get', 'class'], ['literal', ['minor', 'service', 'track']]],
+      layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#1b2a42', 'line-width': largura(1.8) } },
+    { id: 'vias-medias', type: 'line', source: 'omt', 'source-layer': 'transportation', filter: ['in', ['get', 'class'], ['literal', ['secondary', 'tertiary']]],
+      layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#26395a', 'line-width': largura(3) } },
+    { id: 'vias-principais', type: 'line', source: 'omt', 'source-layer': 'transportation', filter: ['in', ['get', 'class'], ['literal', ['motorway', 'trunk', 'primary']]],
+      layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#34507e', 'line-width': largura(4.2) } },
+    { id: 'trilhos', type: 'line', source: 'omt', 'source-layer': 'transportation', filter: ['==', ['get', 'class'], 'rail'],
+      paint: { 'line-color': '#3b4a63', 'line-width': 1.2, 'line-dasharray': [3, 3] } },
+    { id: 'predios', type: 'fill-extrusion', source: 'omt', 'source-layer': 'building', minzoom: 13, filter: ['!=', ['get', 'hide_3d'], true],
+      paint: {
+        'fill-extrusion-color': ['interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 8], 0, '#18263f', 25, '#22375b', 60, '#2d4a7a', 150, '#4467a3'],
+        'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 13, 0, 14.5, ['coalesce', ['get', 'render_height'], 8]],
+        'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+        'fill-extrusion-opacity': 0.88,
+        'fill-extrusion-vertical-gradient': true,
+      } },
+    { id: 'nomes-ruas', type: 'symbol', source: 'omt', 'source-layer': 'transportation_name', minzoom: 14,
+      layout: { 'symbol-placement': 'line', 'text-field': nome, 'text-font': ['Noto Sans Regular'], 'text-size': 11, 'text-max-angle': 30 },
+      paint: { 'text-color': '#8ba3c4', 'text-halo-color': '#050a14', 'text-halo-width': 1.6 } },
+    { id: 'nomes-bairros', type: 'symbol', source: 'omt', 'source-layer': 'place', filter: ['in', ['get', 'class'], ['literal', ['suburb', 'neighbourhood', 'quarter']]],
+      layout: { 'text-field': nome, 'text-font': ['Noto Sans Bold'], 'text-size': 12, 'text-transform': 'uppercase', 'text-letter-spacing': 0.12, 'text-max-width': 8 },
+      paint: { 'text-color': '#6f8db5', 'text-halo-color': '#050a14', 'text-halo-width': 1.6 } },
+    { id: 'nomes-cidades', type: 'symbol', source: 'omt', 'source-layer': 'place', filter: ['in', ['get', 'class'], ['literal', ['city', 'town']]],
+      layout: { 'text-field': nome, 'text-font': ['Noto Sans Bold'], 'text-size': 16 },
+      paint: { 'text-color': '#cfe0f7', 'text-halo-color': '#050a14', 'text-halo-width': 2 } },
+  ],
+};
+
+// No satélite a foto já mostra água, verde e ruas, então essas somem
+const SO_NO_MAPA = ['cobertura', 'parques', 'uso', 'agua', 'vias-menores', 'vias-medias', 'trilhos'];
+
+// ---- Mapa ----
+function temWebGL() {
+  try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; }
+}
+if (!temWebGL()) $('semWebgl').style.display = 'grid';
+
+const mapa = new maplibregl.Map({
+  container: 'mapa',
+  style: ESTILO,
+  center: [-47.06, -22.9],
+  zoom: 12.4,
+  pitch: 62,
+  bearing: -20,
+  maxPitch: 80,
+  antialias: true,
+  centerClampedToGround: true,
+  attributionControl: { compact: true },
+});
+mapa.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right');
+
+const vazio = { type: 'FeatureCollection', features: [] };
+
+// Gruda a câmera no relevo. Com o relevo exagerado o chão fica a ~1.200 m e, se a câmera ficar
+// no 0, tudo aparece deslocado para cima. Só mexe fora de animação: no meio de um flyTo cancela o voo.
+let ajustandoAltitude = false;
+function definirAltitude(elevacao) {
+  ajustandoAltitude = true;
+  mapa.setCenterElevation(elevacao);
+  ajustandoAltitude = false;
+}
+function colarNoRelevo() {
+  if (ajustandoAltitude || !mapa.getTerrain() || mapa.isEasing()) return;
+  const elevacao = mapa.queryTerrainElevation(mapa.getCenter());
+  if (elevacao != null && Math.abs(elevacao - mapa.getCenterElevation()) >= 1) definirAltitude(elevacao);
+}
+mapa.on('move', colarNoRelevo);
+mapa.on('moveend', colarNoRelevo);
+
+// No fim do flyTo a lib recalcula altitude e zoom com o relevo que tiver carregado, e às vezes o
+// enquadramento escorrega. Então, quando o voo termina, encaixa a câmera na posição pedida.
+let voo = null;
+function voar(opcoes) {
+  voo = opcoes;
+  mapa.flyTo({ ...opcoes, essential: true });
+}
+mapa.on('moveend', () => {
+  if (!voo || mapa.isEasing()) return;
+  const alvo = voo;
+  voo = null;
+  const elevacao = mapa.getTerrain() && alvo.center ? mapa.queryTerrainElevation(maplibregl.LngLat.convert(alvo.center)) : null;
+  if (elevacao != null) definirAltitude(elevacao);
+  mapa.jumpTo({ center: alvo.center, zoom: alvo.zoom, bearing: alvo.bearing ?? mapa.getBearing(), pitch: alvo.pitch ?? mapa.getPitch(), padding: alvo.padding });
+});
+// se a pessoa mexeu no mapa durante o voo, fica como ela deixou
+['mousedown', 'touchstart', 'wheel'].forEach((evento) => mapa.on(evento, () => { voo = null; }));
+
+mapa.on('load', () => {
+  mapa.setTerrain({ source: 'relevo', exaggeration: EXAGERO_RELEVO });
+  if (typeof mapa.setSky === 'function') {
+    mapa.setSky({ 'sky-color': '#0b1a33', 'horizon-color': '#1d3a66', 'fog-color': '#08101e', 'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.7, 'fog-ground-blend': 0.4 });
+  }
+  mapa.setLight({ anchor: 'viewport', color: '#dbe8ff', intensity: 0.42, position: [1.4, 210, 35] });
+
+  // Zona de risco: chão vermelho, água subindo e a parede em volta
+  mapa.addSource('zonas', { type: 'geojson', data: vazio });
+  mapa.addLayer({ id: 'zona-chao', type: 'fill', source: 'zonas', filter: ['==', ['get', 'parte'], 'chao'],
+    paint: { 'fill-color': '#ef4444', 'fill-opacity': 0.22 } });
+  mapa.addLayer({ id: 'zona-agua', type: 'fill-extrusion', source: 'zonas', filter: ['==', ['get', 'parte'], 'agua'],
+    paint: { 'fill-extrusion-color': '#2563eb', 'fill-extrusion-opacity': 0.5, 'fill-extrusion-height': 10, 'fill-extrusion-base': 0 } });
+  mapa.addLayer({ id: 'zona-parede', type: 'fill-extrusion', source: 'zonas', filter: ['==', ['get', 'parte'], 'parede'],
+    paint: { 'fill-extrusion-color': '#ef4444', 'fill-extrusion-opacity': 0.42, 'fill-extrusion-height': ALTURA_PAREDE_ZONA, 'fill-extrusion-base': 0, 'fill-extrusion-vertical-gradient': true } });
+  mapa.addLayer({ id: 'zona-rotulo', type: 'symbol', source: 'zonas', filter: ['==', ['get', 'parte'], 'rotulo'],
+    layout: { 'text-field': ['concat', '⚠ ÁREA DE RISCO\n', ['get', 'rio']], 'text-font': ['Noto Sans Bold'], 'text-size': 12.5, 'text-letter-spacing': 0.08, 'text-allow-overlap': true },
+    paint: { 'text-color': '#fecaca', 'text-halo-color': '#450a0a', 'text-halo-width': 2.2 } });
+
+  // Rota: brilho, base escura, degradê e o tracejado que anda
+  mapa.addSource('rota', { type: 'geojson', data: vazio, lineMetrics: true });
+  mapa.addLayer({ id: 'rota-brilho', type: 'line', source: 'rota', layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': '#10b981', 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 14, 17, 34], 'line-blur': 14, 'line-opacity': 0.45 } });
+  mapa.addLayer({ id: 'rota-base', type: 'line', source: 'rota', layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': '#022c22', 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 6, 17, 14] } });
+  mapa.addLayer({ id: 'rota-trilha', type: 'line', source: 'rota', layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 3.5, 17, 8],
+      'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, '#60a5fa', 0.25, '#34d399', 1, '#a7f3d0'] } });
+  mapa.addLayer({ id: 'rota-fluxo', type: 'line', source: 'rota', layout: { 'line-cap': 'butt', 'line-join': 'round' },
+    paint: { 'line-color': '#ecfdf5', 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1.6, 17, 3.2], 'line-opacity': 0.9, 'line-dasharray': [0, 4, 3] } });
+
+  // Trechos da rota abaixo do nível do rio
+  mapa.addSource('rota-baixa', { type: 'geojson', data: vazio });
+  mapa.addLayer({ id: 'rota-baixa-brilho', type: 'line', source: 'rota-baixa', layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': '#f97316', 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 16, 17, 36], 'line-blur': 12, 'line-opacity': 0.55 } });
+  mapa.addLayer({ id: 'rota-baixa', type: 'line', source: 'rota-baixa', layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': '#fb923c', 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 3.5, 17, 8], 'line-dasharray': [1.2, 1] } });
+
+  // Colunas de luz na pessoa e no destino
+  mapa.addSource('farois', { type: 'geojson', data: vazio });
+  mapa.addLayer({ id: 'farol-halo', type: 'fill-extrusion', source: 'farois', filter: ['==', ['get', 'parte'], 'halo'],
+    paint: { 'fill-extrusion-color': ['get', 'cor'], 'fill-extrusion-opacity': 0.16, 'fill-extrusion-height': ALTURA_FAROL * 0.45, 'fill-extrusion-vertical-gradient': true } });
+  mapa.addLayer({ id: 'farol-nucleo', type: 'fill-extrusion', source: 'farois', filter: ['==', ['get', 'parte'], 'nucleo'],
+    paint: { 'fill-extrusion-color': ['get', 'cor'], 'fill-extrusion-opacity': 0.75, 'fill-extrusion-height': ALTURA_FAROL, 'fill-extrusion-vertical-gradient': true } });
+
+  // Popup no mousemove: popup de clique engoliria o clique que marca a pessoa no mapa
+  const pop = new maplibregl.Popup({ closeButton: false, closeOnClick: false, className: 'pop', offset: 12 });
+  mapa.on('mousemove', 'zona-chao', (e) => {
+    const p = e.features[0].properties;
+    pop.setLngLat(e.lngLat).setHTML(`<b>ÁREA DE RISCO</b><br>${esc(p.rio)} — ${esc(p.descricao)}`).addTo(mapa);
+    mapa.getCanvas().style.cursor = 'crosshair';
+  });
+  mapa.on('mouseleave', 'zona-chao', () => { pop.remove(); mapa.getCanvas().style.cursor = ''; });
+
+  mapa.on('click', (e) => {
+    pararPasseio(); pararGiro();
+    estado.origem = [e.lngLat.lng, e.lngLat.lat];
+    calcular();
+  });
+
+  requestAnimationFrame(animar);
+  iniciar();
+});
+
+// ---- Animação ----
+const PASSOS_FLUXO = [[0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5], [2, 4, 1], [2.5, 4, 0.5], [3, 4, 0], [0, 0.5, 3, 3.5], [0, 1, 3, 3], [0, 1.5, 3, 2.5], [0, 2, 3, 2], [0, 2.5, 3, 1.5], [0, 3, 3, 1], [0, 3.5, 3, 0.5]];
+let passoFluxo = -1;
+function animar(agora) {
+  const t = agora / 1000;
+  if (mapa.getLayer('zona-agua')) {
+    mapa.setPaintProperty('zona-agua', 'fill-extrusion-height', 9 + 5 * Math.sin(t * 1.6));
+    mapa.setPaintProperty('zona-parede', 'fill-extrusion-height', ALTURA_PAREDE_ZONA * (0.82 + 0.18 * Math.sin(t * 2.2)));
+    mapa.setPaintProperty('zona-parede', 'fill-extrusion-opacity', 0.32 + 0.12 * Math.sin(t * 2.2));
+    mapa.setPaintProperty('farol-nucleo', 'fill-extrusion-height', ALTURA_FAROL * (0.9 + 0.1 * Math.sin(t * 3)));
+    const passo = Math.floor(t * 18) % PASSOS_FLUXO.length;
+    if (passo !== passoFluxo) { passoFluxo = passo; mapa.setPaintProperty('rota-fluxo', 'line-dasharray', PASSOS_FLUXO[passo]); }
+  }
+  requestAnimationFrame(animar);
+}
+
+// ---- Dados ----
+const sufixoAlerta = alerta ? `alerta=${alerta}` : '';
+
+function desenharZonas(zonas) {
+  estado.zonas = zonas;
+  const feats = [];
+  zonas.forEach((z) => {
+    const centro = [z.lng, z.lat];
+    const props = { rio: z.rio, descricao: z.descricao };
+    feats.push({ type: 'Feature', properties: { ...props, parte: 'chao' }, geometry: circulo(centro, z.raio_m) });
+    feats.push({ type: 'Feature', properties: { ...props, parte: 'agua' }, geometry: circulo(centro, z.raio_m - 14) });
+    feats.push({ type: 'Feature', properties: { ...props, parte: 'parede' }, geometry: coroa(centro, z.raio_m, z.raio_m - 10) });
+    feats.push({ type: 'Feature', properties: { ...props, parte: 'rotulo' }, geometry: { type: 'Point', coordinates: centro } });
+  });
+  mapa.getSource('zonas').setData({ type: 'FeatureCollection', features: feats });
+  const chip = $('chipZonas');
+  chip.querySelector('b').textContent = zonas.length;
+  chip.querySelector('.led').className = 'led ' + (zonas.length ? (alerta ? 'perigo' : 'atencao') : 'ok');
+}
+
+function desenharFarois(lista) {
+  const feats = [];
+  lista.forEach(({ ponto, cor }) => {
+    feats.push({ type: 'Feature', properties: { cor, parte: 'nucleo' }, geometry: circulo(ponto, 5) });
+    feats.push({ type: 'Feature', properties: { cor, parte: 'halo' }, geometry: circulo(ponto, 16) });
+  });
+  mapa.getSource('farois').setData({ type: 'FeatureCollection', features: feats });
+}
+
+async function api(caminho) {
+  const r = await fetch(caminho);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.detail || 'O serviço de rota de fuga não respondeu');
+  return d;
+}
+
+async function altitudesAoLongo(coords, amostras = 60) {
+  const acc = acumulado(coords);
+  const total = acc[acc.length - 1];
+  const pts = Array.from({ length: amostras }, (_, i) => pontoEm(coords, acc, (total * i) / (amostras - 1)));
+  try {
+    const url = `https://api.open-meteo.com/v1/elevation?latitude=${pts.map((p) => p[1].toFixed(5)).join(',')}&longitude=${pts.map((p) => p[0].toFixed(5)).join(',')}`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error();
+    const alts = (await r.json()).elevation;
+    if (alts.some((a) => a == null)) throw new Error();
+    return { alts, total, pts };
+  } catch {
+    // Open-Meteo fora: usa o relevo que o mapa já carregou
+    const alts = pts.map((p) => (mapa.queryTerrainElevation(p) ?? 0) / EXAGERO_RELEVO);
+    return alts.some((a) => a) ? { alts, total, pts } : null;
+  }
+}
+
+// ---- Marcadores ----
+let marcadorVoce = null, marcadorDestino = null, marcadorDisco = null;
+function pino(classe, etiqueta) {
+  const el = document.createElement('div');
+  el.className = `pino ${classe}`;
+  el.innerHTML = `<span class="pino-onda"></span><span class="pino-onda d2"></span>${etiqueta ? `<div class="pino-etiqueta">${etiqueta}</div>` : ''}<span class="pino-nucleo"></span>`;
+  return el;
+}
+function colocarVoce(ponto) {
+  if (marcadorVoce) marcadorVoce.remove();
+  marcadorVoce = new maplibregl.Marker({ element: pino('voce', 'VOCÊ'), anchor: 'center' }).setLngLat(ponto).addTo(mapa);
+}
+function colocarDestino(ponto, destino) {
+  if (marcadorDestino) marcadorDestino.remove();
+  const sub = destino.acima_do_risco_m != null ? `+${Math.round(destino.acima_do_risco_m)} m acima do rio` : esc(destino.tipo);
+  marcadorDestino = new maplibregl.Marker({ element: pino('seguro', `ÁREA SEGURA<small>${sub}</small>`), anchor: 'center' }).setLngLat(ponto).addTo(mapa);
+}
+
+// ---- Painel ----
+const ICONES = {
+  esquerda: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>',
+  direita: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>',
+  retorno: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a4 4 0 0 1 0 8h-1"/></svg>',
+  rotatoria: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 7V2M17 12h5"/></svg>',
+  chegada: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4a1 1 0 0 1 1-1h12l-2 4 2 4H5"/></svg>',
+  frente: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V4M6 10l6-6 6 6"/></svg>',
+};
+function iconePasso(txt, ultimo) {
+  const t = txt.toLowerCase();
+  if (ultimo || t.includes('chegou') || t.includes('chegue') || t.includes('destino')) return ICONES.chegada;
+  if (t.includes('retorno')) return ICONES.retorno;
+  if (t.includes('rotatória')) return ICONES.rotatoria;
+  if (t.includes('esquerda')) return ICONES.esquerda;
+  if (t.includes('direita')) return ICONES.direita;
+  return ICONES.frente;
+}
+const ICONE_AVISO = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.7 3.86a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>';
+
+const ICONE_SIRENE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M12 2a7 7 0 0 0-7 7v7H4v3h16v-3h-1V9a7 7 0 0 0-7-7z"/></svg>';
+const ICONE_NAVEGAR = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 11 22 2l-9 19-2-8-8-2z"/></svg>';
+const ICONE_PLAY = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14z"/></svg>';
+const ICONE_RECALCULAR = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>';
+
+// O painel tem uma fase: inicio, localizando, calculando, rota ou erro.
+// Cada fase decide o que aparece; renderPainel() redesenha tudo quando ela muda.
+function seletorModo() {
+  return `
+    <div class="segmentos" data-modo="${estado.modo}">
+      <span class="pilula"></span>
+      <button data-acao="modo" data-modo="pe" class="${estado.modo === 'pe' ? 'ativo' : ''}">🚶 A pé</button>
+      <button data-acao="modo" data-modo="carro" class="${estado.modo === 'carro' ? 'ativo' : ''}">🚗 De carro</button>
+    </div>`;
+}
+
+function nomesDasZonas() {
+  return estado.zonas.map((z) => `${esc(z.rio)} · ${esc(z.descricao)}`).join('<br>');
+}
+
+function htmlCabecalho() {
+  const d = estado.resposta;
+  if (estado.fase === 'rota' && d?.dentro_de_zona_risco) {
+    return `
+      <div class="status perigo">
+        <span class="sirene">${ICONE_SIRENE}</span>
+        <div>
+          <b>Você está dentro da área de risco</b>
+          <span>Saia agora seguindo a rota verde.</span>
+          ${alerta && estado.zonas.length ? `<small>Alerta: ${nomesDasZonas()}</small>` : ''}
+        </div>
+      </div>`;
+  }
+  if (alerta) {
+    return `
+      <div class="status alerta">
+        <span class="sirene">${ICONE_SIRENE}</span>
+        <div><b>Alerta de enchente</b><span>${estado.zonas.length ? nomesDasZonas() : 'Carregando a área em alerta…'}</span></div>
+      </div>`;
+  }
+  return '<div class="intro"><h1>Rota de Fuga</h1><p>O caminho mais seguro até um lugar alto, longe das áreas de risco de enchente.</p></div>';
+}
+
+function htmlRota(d) {
+  const destino = d.destino;
+  const tempo = d.rota ? fmtTempo(d.rota.duracao_s) : '—';
+  const distancia = fmtDist(d.rota ? d.rota.distancia_m : destino.distancia_linha_reta_m);
+  const acima = destino.acima_do_risco_m != null ? `+${Math.round(destino.acima_do_risco_m)} m` : '—';
+  // O "você está dentro" já aparece na faixa de status
+  const avisos = d.avisos.filter((a) => !a.startsWith('Você está DENTRO'));
+  const passos = d.rota?.passos ?? [];
+
+  return `
+    <div class="destino3d"><section class="destino-cartao" id="cartaoDestino"><div class="camada">
+      <div class="destino-rotulo">Vá para</div>
+      <div class="destino-topo">
+        <span class="bandeira">${ICONES.chegada.replace('stroke="currentColor"', 'stroke="#fff"')}</span>
+        <div>
+          <div class="destino-nome">${esc(destino.nome)}</div>
+          <div class="destino-tipo">${esc(destino.endereco || destino.tipo)}</div>
+        </div>
+      </div>
+      <div class="metricas">
+        <div class="metrica"><b>${tempo}</b><span>${d.rota ? (estado.modo === 'pe' ? 'a pé' : 'de carro') : 'sem rota'}</span></div>
+        <div class="metrica"><b>${distancia}</b><span>${d.rota ? 'distância' : 'linha reta'}</span></div>
+        <div class="metrica subida"><b>${acima}</b><span>acima do rio</span></div>
+      </div>
+      ${seletorModo()}
+    </div></section></div>
+
+    ${avisos.length ? `<div class="avisos">${avisos.map((a) => `<div class="aviso">${ICONE_AVISO}<span>${esc(a)}</span></div>`).join('')}</div>` : ''}
+
+    <section class="secao perfil" id="perfil"><div class="secao-cab"><span>Perfil do caminho</span><b>calculando…</b></div></section>
+
+    ${passos.length ? `
+      <details class="secao">
+        <summary class="secao-cab"><span>Passo a passo</span><b>${passos.length} instruções</b></summary>
+        <ol class="passos">${passos.map((p, i) => `
+          <li class="passo"><span class="passo-icone">${iconePasso(p.instrucao, i === passos.length - 1)}</span>
+          <span class="passo-txt">${esc(p.instrucao)}${p.distancia_m ? `<small>${fmtDist(p.distancia_m)}</small>` : ''}</span></li>`).join('')}
+        </ol>
+      </details>` : ''}
+
+    ${d.alternativas.length ? `
+      <section class="secao">
+        <div class="secao-cab"><span>Outras opções</span></div>
+        ${d.alternativas.map((a) => `<div class="alternativa">${esc(a.destino.nome)} · ${fmtTempo(a.duracao_s)} · ${fmtDist(a.distancia_m)}${a.cruza_zona_risco ? ' · passa por área de risco' : ''}</div>`).join('')}
+      </section>` : ''}`;
+}
+
+function htmlCorpo() {
+  if (estado.fase === 'rota' || (estado.fase === 'calculando' && estado.resposta)) return htmlRota(estado.resposta);
+  if (estado.fase === 'calculando' || estado.fase === 'localizando') return '<div class="esqueleto"><i></i><i></i><i></i></div>';
+  if (estado.fase === 'erro') return `<div class="aviso grave">${ICONE_AVISO}<span>${esc(estado.erro)}</span></div>`;
+  return seletorModo();
+}
+
+function htmlRodape() {
+  const d = estado.resposta;
+  if (estado.fase === 'rota') {
+    return `
+      <a class="btn3d azul" href="${esc(d.links.google_maps)}" target="_blank" rel="noopener">${ICONE_NAVEGAR} Navegar pelo Google Maps</a>
+      <div class="acoes">
+        <a class="btn-sec" href="${esc(d.links.waze)}" target="_blank" rel="noopener">Waze</a>
+        <button class="btn-sec" data-acao="passeio" ${d.rota ? '' : 'disabled'}>${ICONE_PLAY} Ver em 3D</button>
+        <button class="btn-sec" data-acao="gps">${ICONE_RECALCULAR} Minha posição</button>
+      </div>`;
+  }
+  const textos = { localizando: 'Obtendo sua localização…', calculando: 'Calculando rota segura…', erro: 'Tentar de novo' };
+  const ocupado = estado.fase === 'localizando' || estado.fase === 'calculando';
+  return `
+    <button class="btn3d" data-acao="gps" ${ocupado ? 'disabled' : ''}><span class="alvo"></span>${textos[estado.fase] || 'Encontrar rota segura'}</button>
+    ${ocupado ? '' : '<p class="ou-toque">ou toque no mapa onde você está</p>'}`;
+}
+
+function renderPainel() {
+  $('cabecalho').innerHTML = htmlCabecalho();
+  $('corpo').innerHTML = htmlCorpo();
+  $('corpo').classList.toggle('esmaecido', estado.fase === 'calculando' && !!estado.resposta);
+  $('rodape').innerHTML = htmlRodape();
+  inclinarAoPassarMouse($('cartaoDestino'));
+}
+
+function mudarFase(fase, erro = '') {
+  estado.fase = fase;
+  estado.erro = erro;
+  renderPainel();
+}
+
+function perfilSVG(alts, total, altRio) {
+  const W = 340, H = 120, P = 6;
+  const min = Math.min(...alts, altRio ?? Infinity) - 4, max = Math.max(...alts, altRio ?? -Infinity) + 4;
+  const x = (i) => P + (i / (alts.length - 1)) * (W - 2 * P);
+  const y = (a) => H - P - ((a - min) / (max - min || 1)) * (H - 2 * P);
+  const linha = alts.map((a, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(a).toFixed(1)}`).join(' ');
+  const area = `${linha} L${x(alts.length - 1)},${H} L${x(0)},${H} Z`;
+  // Faixa vermelha onde o caminho fica abaixo do rio
+  const alagavel = altRio != null && alts.some((a) => a < altRio)
+    ? `<path d="M${x(0)},${y(altRio)} ${alts.map((a, i) => `L${x(i).toFixed(1)},${y(altRio).toFixed(1)}`).join(' ')} ${alts.map((a, i) => [i, a]).reverse().map(([i, a]) => `L${x(i).toFixed(1)},${Math.max(y(a), y(altRio)).toFixed(1)}`).join(' ')} Z" fill="url(#gAgua)"/>`
+    : '';
+  const rio = altRio != null ? `<line x1="0" x2="${W}" y1="${y(altRio)}" y2="${y(altRio)}" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="5 4"/><text x="${W - 4}" y="${y(altRio) - 5}" text-anchor="end" fill="#fca5a5" font-size="10" font-weight="700">NÍVEL DO RIO</text>` : '';
+  return `
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="gArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34d399" stop-opacity=".55"/><stop offset="1" stop-color="#34d399" stop-opacity="0"/></linearGradient>
+        <linearGradient id="gLinha" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#60a5fa"/><stop offset=".3" stop-color="#34d399"/><stop offset="1" stop-color="#a7f3d0"/></linearGradient>
+        <linearGradient id="gAgua" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ef4444" stop-opacity=".55"/><stop offset="1" stop-color="#ef4444" stop-opacity=".15"/></linearGradient>
+        <filter id="gBrilho"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      ${[0.25, 0.5, 0.75].map((f) => `<line x1="0" x2="${W}" y1="${H * f}" y2="${H * f}" stroke="rgba(148,197,255,.07)"/>`).join('')}
+      <path d="${area}" fill="url(#gArea)"/>
+      ${alagavel}
+      ${rio}
+      <path d="${linha}" fill="none" stroke="url(#gLinha)" stroke-width="3" stroke-linejoin="round" filter="url(#gBrilho)"/>
+      <circle cx="${x(0)}" cy="${y(alts[0])}" r="5" fill="#60a5fa" stroke="#fff" stroke-width="2"/>
+      <circle cx="${x(alts.length - 1)}" cy="${y(alts[alts.length - 1])}" r="6" fill="#34d399" stroke="#fff" stroke-width="2"/>
+    </svg>`;
+}
+
+async function mostrarPerfil(d) {
+  const caixa = $('perfil');
+  const coords = d.rota ? d.rota.geometria.coordinates : [estado.origem, [d.destino.lng, d.destino.lat]];
+  const dados = await altitudesAoLongo(coords);
+  if (!dados || !caixa.isConnected) { if (caixa.isConnected) caixa.remove(); return; }
+  const { alts, total, pts } = dados;
+  const altRio = d.destino.altitude_m != null && d.destino.acima_do_risco_m != null ? d.destino.altitude_m - d.destino.acima_do_risco_m : null;
+  const ganho = alts[alts.length - 1] - alts[0];
+
+  // Trechos abaixo do rio: aviso no perfil e laranja no mapa
+  const passo = total / (alts.length - 1);
+  const trechos = [];
+  let atual = null;
+  alts.forEach((a, i) => {
+    const baixo = altRio != null && a < altRio;
+    if (baixo && !atual) { atual = i > 0 ? [pts[i - 1], pts[i]] : [pts[i]]; trechos.push(atual); }
+    else if (baixo) atual.push(pts[i]);
+    else if (atual) { atual.push(pts[i]); atual = null; }
+  });
+  const metrosBaixos = altRio != null ? alts.filter((a) => a < altRio).length * passo : 0;
+  mapa.getSource('rota-baixa').setData({ type: 'Feature', properties: {},
+    geometry: { type: 'MultiLineString', coordinates: trechos.filter((t) => t.length > 1) } });
+
+  caixa.innerHTML = `
+    <div class="secao-cab"><span>Perfil do caminho · ${fmtDist(total)}</span><b>${ganho >= 0 ? 'sobe +' : 'desce '}${Math.round(ganho)} m</b></div>
+    ${perfilSVG(alts, total, altRio)}
+    <div class="perfil-leg"><span><i style="background:#34d399"></i>terreno no caminho</span>${altRio != null ? '<span><i style="background:#ef4444"></i>nível do rio</span>' : ''}</div>
+    ${metrosBaixos > 0 ? `<div class="aviso">${ICONE_AVISO}<span><b>${fmtDist(metrosBaixos)}</b> do caminho ficam abaixo do nível do rio (laranja no mapa) e podem estar alagados. Passe com cuidado e não entre em água corrente.</span></div>` : ''}`;
+}
+
+// Cartão que inclina seguindo o mouse
+function inclinarAoPassarMouse(el) {
+  if (!el || matchMedia('(hover: none)').matches) return;
+  el.addEventListener('mousemove', (e) => {
+    const r = el.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width - 0.5, py = (e.clientY - r.top) / r.height - 0.5;
+    el.style.transform = `rotateY(${px * 14}deg) rotateX(${-py * 12}deg) translateZ(6px)`;
+  });
+  el.addEventListener('mouseleave', () => { el.style.transform = ''; });
+}
+
+// ---- Fluxo principal ----
+function radar(ligado) {
+  $('carregando').classList.toggle('visivel', ligado);
+}
+
+function enquadrar(duracao = 2400) {
+  if (!estado.rota.length && !estado.origem) return;
+  const pts = estado.rota.length ? [...estado.rota, estado.origem] : [estado.origem];
+  const b = pts.reduce((bb, p) => bb.extend(p), new maplibregl.LngLatBounds(pts[0], pts[0]));
+  const destino = estado.rota[estado.rota.length - 1] || estado.origem;
+  const direcao = estado.origem && destino ? rumo(estado.origem, destino) : mapa.getBearing();
+  const padding = margensDaTela();
+  const cam = mapa.cameraForBounds(b, { padding, bearing: direcao, maxZoom: 16.5 });
+  if (!cam) return;
+  // Com a câmera inclinada, o center do cameraForBounds deixa o destino fora da tela.
+  // Mira no meio da rota e passa o padding do painel.
+  voar({ center: b.getCenter(), zoom: cam.zoom - 0.3, padding, pitch: estado.vista3d ? 60 : 0, bearing: direcao, duration: duracao, curve: 1.6 });
+}
+
+// Área coberta pelo painel e pelos botões
+function margensDaTela() {
+  if (innerWidth > 820) return { top: 110, bottom: 70, left: 440, right: 100 };
+  return { top: 80, bottom: Math.round(innerHeight * 0.58), left: 30, right: 70 };
+}
+
+async function calcular() {
+  if (!estado.origem) return;
+  mudarFase('calculando');
+  radar(true);
+  colocarVoce(estado.origem);
+  if (marcadorDestino) marcadorDestino.remove();
+  desenharFarois([{ ponto: estado.origem, cor: '#60a5fa' }]);
+  mapa.getSource('rota').setData(vazio);
+  mapa.getSource('rota-baixa').setData(vazio);
+  voar({ center: estado.origem, zoom: Math.max(mapa.getZoom(), 15), pitch: estado.vista3d ? 60 : 0, duration: 1400 });
+
+  try {
+    const [lng, lat] = estado.origem;
+    const d = await api(`/rota-fuga?lat=${lat}&lng=${lng}&modo=${estado.modo}${sufixoAlerta ? '&' + sufixoAlerta : ''}`);
+    estado.resposta = d;
+    desenharZonas(d.zonas_risco);
+    const destino = [d.destino.lng, d.destino.lat];
+    estado.rota = d.rota ? d.rota.geometria.coordinates : [estado.origem, destino];
+    mapa.getSource('rota').setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: estado.rota } });
+    // Sem rota (serviço de mapa fora): fica só a linha reta tracejada
+    mapa.setLayoutProperty('rota-trilha', 'visibility', d.rota ? 'visible' : 'none');
+    colocarDestino(destino, d.destino);
+    desenharFarois([{ ponto: estado.origem, cor: '#60a5fa' }, { ponto: destino, cor: '#34d399' }]);
+    mudarFase('rota');
+    $('ctrlPasseio').disabled = !d.rota;
+    enquadrar();
+    mostrarPerfil(d);
+  } catch (e) {
+    estado.resposta = null;
+    estado.rota = [];
+    $('ctrlPasseio').disabled = true;
+    mudarFase('erro', `${e.message}. Siga as orientações da Defesa Civil.`);
+  } finally {
+    radar(false);
+  }
+}
+
+function usarGPS() {
+  if (!navigator.geolocation) {
+    mudarFase('erro', 'Seu navegador não oferece localização. Toque no mapa onde você está.');
+    return;
+  }
+  mudarFase('localizando');
+  navigator.geolocation.getCurrentPosition(
+    (pos) => { estado.origem = [pos.coords.longitude, pos.coords.latitude]; calcular(); },
+    () => mudarFase('erro', 'Não consegui sua localização. Toque no mapa onde você está.'),
+    { enableHighAccuracy: true, timeout: 15000 },
+  );
+}
+
+// ---- Câmera e controles ----
+function percorrer() {
+  if (estado.rota.length < 2) return;
+  pararGiro();
+  const coords = estado.rota, acc = acumulado(coords), total = acc[acc.length - 1];
+  const duracao = Math.min(32000, Math.max(12000, total * (estado.modo === 'pe' ? 9 : 4)));
+  if (marcadorDisco) marcadorDisco.remove();
+  const el = pino('disco', ''); el.querySelector('.pino-etiqueta')?.remove();
+  marcadorDisco = new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat(coords[0]).addTo(mapa);
+  $('passeio').classList.add('visivel');
+  $('ctrlPasseio').classList.add('ligado');
+  let direcao = rumo(coords[0], pontoEm(coords, acc, 80));
+  const inicio = performance.now();
+  const quadro = (agora) => {
+    const t = Math.min(1, (agora - inicio) / duracao);
+    const d = total * (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2); // acelera e desacelera
+    const aqui = pontoEm(coords, acc, d);
+    const adiante = pontoEm(coords, acc, Math.min(total, d + 90));
+    if (distancia(aqui, adiante) > 3) direcao = angulo(direcao, rumo(aqui, adiante), 0.06);
+    marcadorDisco.setLngLat(aqui);
+    mapa.jumpTo({ center: pontoEm(coords, acc, Math.min(total, d + 25)), bearing: direcao, pitch: 70, zoom: 17.2 });
+    $('passeioBarra').style.width = `${(t * 100).toFixed(1)}%`;
+    $('passeioTxt').textContent = t < 1 ? `Percorrendo a rota · faltam ${fmtDist(total - d)}` : 'Você chegou à área segura';
+    if (t < 1) estado.passeio = requestAnimationFrame(quadro);
+    else setTimeout(() => { pararPasseio(); enquadrar(2000); }, 1400);
+  };
+  estado.passeio = requestAnimationFrame(quadro);
+}
+function pararPasseio() {
+  if (estado.passeio) cancelAnimationFrame(estado.passeio);
+  estado.passeio = null;
+  $('passeio').classList.remove('visivel');
+  $('ctrlPasseio').classList.remove('ligado');
+  if (marcadorDisco) { marcadorDisco.remove(); marcadorDisco = null; }
+}
+
+function girar() {
+  if (estado.girando) { pararGiro(); return; }
+  pararPasseio();
+  $('ctrlGirar').classList.add('ligado');
+  let ultimo = performance.now();
+  const quadro = (agora) => {
+    mapa.setBearing(mapa.getBearing() + (agora - ultimo) * 0.012);
+    ultimo = agora;
+    estado.girando = requestAnimationFrame(quadro);
+  };
+  estado.girando = requestAnimationFrame(quadro);
+}
+function pararGiro() {
+  if (estado.girando) cancelAnimationFrame(estado.girando);
+  estado.girando = null;
+  $('ctrlGirar').classList.remove('ligado');
+}
+
+function alternar3d() {
+  estado.vista3d = !estado.vista3d;
+  $('ctrl3d').classList.toggle('ligado', estado.vista3d);
+  mapa.setTerrain(estado.vista3d ? { source: 'relevo', exaggeration: EXAGERO_RELEVO } : null);
+  if (!estado.vista3d) definirAltitude(0);
+  mapa.easeTo({ pitch: estado.vista3d ? 60 : 0, bearing: estado.vista3d ? mapa.getBearing() : 0, duration: 1200 });
+}
+
+function alternarSatelite() {
+  estado.satelite = !estado.satelite;
+  $('ctrlSatelite').classList.toggle('ligado', estado.satelite);
+  mapa.setLayoutProperty('satelite', 'visibility', estado.satelite ? 'visible' : 'none');
+  SO_NO_MAPA.forEach((id) => mapa.setLayoutProperty(id, 'visibility', estado.satelite ? 'none' : 'visible'));
+  mapa.setPaintProperty('relevo-sombra', 'hillshade-exaggeration', estado.satelite ? 0.25 : 0.55);
+  mapa.setPaintProperty('predios', 'fill-extrusion-color', estado.satelite
+    ? ['interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 8], 0, '#cbd5e1', 60, '#e2e8f0']
+    : ['interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 8], 0, '#18263f', 25, '#22375b', 60, '#2d4a7a', 150, '#4467a3']);
+  mapa.setPaintProperty('predios', 'fill-extrusion-opacity', estado.satelite ? 0.7 : 0.88);
+  mapa.setPaintProperty('vias-principais', 'line-opacity', estado.satelite ? 0.3 : 1);
+}
+
+// ---- Início ----
+$('painel').addEventListener('click', (e) => {
+  const botao = e.target.closest('[data-acao]');
+  if (!botao || botao.disabled) return;
+  const acao = botao.dataset.acao;
+  if (acao === 'gps') {
+    pararPasseio(); pararGiro(); usarGPS();
+  } else if (acao === 'passeio') {
+    estado.passeio ? pararPasseio() : percorrer();
+  } else if (acao === 'modo' && botao.dataset.modo !== estado.modo) {
+    estado.modo = botao.dataset.modo;
+    botao.closest('.segmentos').dataset.modo = estado.modo;  // a pílula desliza antes de redesenhar
+    pararPasseio();
+    if (estado.origem) setTimeout(calcular, 250);
+    else renderPainel();
+  }
+});
+$('ctrl3d').addEventListener('click', alternar3d);
+$('ctrlSatelite').addEventListener('click', alternarSatelite);
+$('ctrlPasseio').addEventListener('click', () => (estado.passeio ? pararPasseio() : percorrer()));
+$('ctrlGirar').addEventListener('click', girar);
+$('ctrlCentro').addEventListener('click', () => { pararPasseio(); pararGiro(); enquadrar(1600); });
+$('passeioParar').addEventListener('click', pararPasseio);
+
+setInterval(() => { $('chipHora').querySelector('b').textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }, 1000);
+renderPainel();
+
+async function iniciar() {
+  api('/status').then((s) => {
+    const ativo = String(s.desvio_de_zonas).includes('openrouteservice');
+    $('chipDesvio').innerHTML = `<span class="led ${ativo ? 'ok' : 'atencao'}"></span>Desvio <b>${ativo ? 'inteligente' : 'reserva'}</b>`;
+  }).catch(() => {});
+
+  try {
+    desenharZonas(await api('/zonas-risco'));
+    $('cabecalho').innerHTML = htmlCabecalho();
+    if (estado.zonas.length && !params.get('lat')) {
+      const b = estado.zonas.reduce((bb, z) => bb.extend([z.lng, z.lat]), new maplibregl.LngLatBounds([estado.zonas[0].lng, estado.zonas[0].lat], [estado.zonas[0].lng, estado.zonas[0].lat]));
+      const padding = margensDaTela();
+      const cam = mapa.cameraForBounds(b, { padding, maxZoom: 15.3 });
+      if (cam) voar({ center: b.getCenter(), zoom: Math.min(15.3, cam.zoom - 0.6), padding, pitch: 62, bearing: -25, duration: 3200 });
+    }
+  } catch { /* sem zonas o mapa ainda funciona */ }
+
+  // ?lat=&lng= calcula direto; ?auto=1 (link do alerta) já pede o GPS
+  const lat = parseFloat(params.get('lat')), lng = parseFloat(params.get('lng'));
+  if (Number.isFinite(lat) && Number.isFinite(lng)) { estado.origem = [lng, lat]; calcular(); }
+  else if (params.get('auto') === '1') usarGPS();
+}
+</script>
+</body>
+</html>
